@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GameHub Pro</title>
+
+<style>
+body{
+    margin:0;
+    font-family:'Segoe UI',sans-serif;
+    background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+    color:white;
+}
+
+header{
+    text-align:center;
+    padding:20px;
+    font-size:28px;
+    font-weight:600;
+    letter-spacing:2px;
+}
+
+/* TELAS */
+.screen{ display:none; padding:20px; }
+.active-screen{ display:block; }
+
+/* LOBBY */
+.games-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+    gap:20px;
+    max-width:900px;
+    margin:40px auto;
+}
+
+.game-card{
+    background:rgba(255,255,255,0.05);
+    backdrop-filter:blur(10px);
+    padding:30px;
+    border-radius:15px;
+    text-align:center;
+    cursor:pointer;
+    transition:0.3s;
+    box-shadow:0 0 20px rgba(0,0,0,0.4);
+}
+
+.game-card:hover{
+    transform:translateY(-5px);
+    box-shadow:0 0 30px rgba(0,255,200,0.6);
+}
+
+/* XADREZ */
+.board{
+    display:grid;
+    grid-template-columns:repeat(8,70px);
+    grid-template-rows:repeat(8,70px);
+    margin:20px auto;
+}
+
+.square{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:40px;
+    cursor:pointer;
+}
+
+.light{ background:#f0d9b5; }
+.dark{ background:#b58863; }
+
+.square.possible{
+    box-shadow: inset 0 0 0 4px rgba(255,255,0,0.7);
+}
+
+.controls{
+    display:flex;
+    justify-content:center;
+    gap:20px;
+}
+
+.timer{
+    background:rgba(0,0,0,0.5);
+    padding:10px 20px;
+    border-radius:10px;
+}
+
+button{
+    padding:10px 20px;
+    border:none;
+    border-radius:10px;
+    background:#00c6ff;
+    font-weight:bold;
+    cursor:pointer;
+    margin:10px;
+}
+button:hover{ transform:scale(1.05); }
+
+.back-btn{
+    background:red;
+
+}
+.chess-container{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    min-height:70vh;
+}
+
+.board{
+    display:grid;
+    grid-template-columns:repeat(8,70px);
+    grid-template-rows:repeat(8,70px);
+    margin:20px 0;
+}
+
+.start-btn{
+    background:#2ecc71;
+}
+
+.start-btn:hover{
+    box-shadow:0 0 15px #2ecc71;
+}
+/* OVERLAY DE VITÓRIA */
+.victory-overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,0.85);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:1000;
+    animation:fadeIn 0.5s ease forwards;
+}
+
+.victory-card{
+    background:linear-gradient(135deg,#1abc9c,#16a085);
+    padding:40px 60px;
+    border-radius:20px;
+    text-align:center;
+    box-shadow:0 0 40px rgba(0,255,200,0.8);
+    animation:popUp 0.6s ease forwards;
+}
+
+.victory-card h1{
+    margin:0 0 20px 0;
+    font-size:32px;
+}
+
+@keyframes fadeIn{
+    from{opacity:0;}
+    to{opacity:1;}
+}
+
+@keyframes popUp{
+    from{transform:scale(0.5);opacity:0;}
+    to{transform:scale(1);opacity:1;}
+}
+.square.in-check{
+    background:#e74c3c !important;
+    animation:dangerPulse 1s infinite;
+}
+
+@keyframes dangerPulse{
+    0%{box-shadow:0 0 5px red;}
+    50%{box-shadow:0 0 20px red;}
+    100%{box-shadow:0 0 5px red;}
+}
+</style>
+</head>
+
+<body>
+
+<header>🎮 GameHub Pro</header>
+
+<!-- LOBBY -->
+<div id="lobby" class="screen active-screen">
+    <div class="games-grid">
+        <div class="game-card" onclick="openScreen('chess')">
+            <h2>♟ Xadrez</h2>
+            <p>Multiplayer com Timer</p>
+        </div>
+
+        <!-- Espaço futuro -->
+        <div class="game-card">
+            <h2>♞ Em Breve</h2>
+            <p>Novo jogo chegando...</p>
+        </div>
+    </div>
+</div>
+
+<!-- XADREZ -->
+<div id="chess" class="screen">
+    <div class="chess-container">
+
+        <button class="back-btn" onclick="openScreen('lobby')">⬅ Voltar ao Lobby</button>
+
+        <div class="controls">
+            <div class="timer">Brancas: <span id="whiteTimer">05:00</span></div>
+            <div class="timer">Pretas: <span id="blackTimer">05:00</span></div>
+        </div>
+
+        <div id="board" class="board"></div>
+<div style="margin-top:15px;">
+    <label>Tempo:</label>
+    <select id="timeSelect">
+        <option value="60">1 Minuto</option>
+        <option value="180">3 Minutos</option>
+        <option value="300" selected>5 Minutos</option>
+        <option value="600">10 Minutos</option>
+    </select>
+</div>
+        <button class="start-btn" onclick="startMatch()">▶ START PARTIDA</button>
+        <button onclick="togglePause()" id="pauseBtn">⏸ Pause</button>
+
+    </div>
+</div>
+<script>
+function openScreen(id){
+    document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active-screen"));
+    document.getElementById(id).classList.add("active-screen");
+}
+
+/* =======================
+   SISTEMA DE XADREZ
+======================= */
+
+const boardElement=document.getElementById("board");
+const whiteTimerEl=document.getElementById("whiteTimer");
+const blackTimerEl=document.getElementById("blackTimer");
+
+let board=[],selected=null,currentPlayer="white";
+let whiteTime=300,blackTime=300,timerInterval;
+let gameStarted = false;
+let isPaused = false;
+const pieces={
+r:'♜',n:'♞',b:'♝',q:'♛',k:'♚',p:'♟',
+R:'♖',N:'♘',B:'♗',Q:'♕',K:'♔',P:'♙'
+};
+function showVictory(winner){
+    gameStarted = false;
+    clearInterval(timerInterval);
+
+    const overlay = document.createElement("div");
+    overlay.className = "victory-overlay";
+
+    overlay.innerHTML = `
+        <div class="victory-card">
+            <h1>🏆 ${winner} venceu!</h1>
+            <button onclick="restartMatch()">Nova Partida</button>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+}
+function restartMatch(){
+    document.querySelector(".victory-overlay").remove();
+    whiteTime = 300;
+    blackTime = 300;
+    currentPlayer = "white";
+    gameStarted = false;
+    initBoard();
+    renderBoard();
+    updateTimer();
+}
+function initBoard(){
+board=[
+["r","n","b","q","k","b","n","r"],
+["p","p","p","p","p","p","p","p"],
+["","","","","","","",""],
+["","","","","","","",""],
+["","","","","","","",""],
+["","","","","","","",""],
+["P","P","P","P","P","P","P","P"],
+["R","N","B","Q","K","B","N","R"]
+];
+}
+
+function togglePause(){
+    if(!gameStarted) return;
+
+    isPaused = !isPaused;
+    document.getElementById("pauseBtn").innerText = isPaused ? "▶ Continuar" : "⏸ Pause";
+}
+
+
+function renderBoard(){
+boardElement.innerHTML="";
+for(let r=0;r<8;r++){
+for(let c=0;c<8;c++){
+const square=document.createElement("div");
+square.className="square "+((r+c)%2===0?"light":"dark");
+square.innerHTML=pieces[board[r][c]]||"";
+square.onclick=()=>handleClick(r,c);
+boardElement.appendChild(square);
+setTimeout(()=>{
+    ["white","black"].forEach(color=>{
+        if(isKingInCheck(color)){
+            for(let r=0;r<8;r++){
+                for(let c=0;c<8;c++){
+                    const piece=board[r][c];
+                    if(piece &&
+                       ((color==="white" && piece==="K") ||
+                        (color==="black" && piece==="k"))){
+                        const index=r*8+c;
+                        document.querySelectorAll(".square")[index]
+                        .classList.add("in-check");
+                    }
+                }
+            }
+        }
+    });
+},0);
+}
+}
+}
+function handleClick(r,c){
+if(!gameStarted) return;
+const piece=board[r][c];
+if(selected){
+if(isValidMove(selected.r,selected.c,r,c)){
+board[r][c]=board[selected.r][selected.c];
+board[selected.r][selected.c]="";
+currentPlayer=currentPlayer==="white"?"black":"white";
+}
+selected=null;
+renderBoard();
+}else if(piece && isCorrectTurn(piece)){
+selected={r,c};
+highlightMoves(r,c);
+}
+}
+
+function isCorrectTurn(piece){
+return (currentPlayer==="white"&&piece===piece.toUpperCase())||
+(currentPlayer==="black"&&piece===piece.toLowerCase());
+}
+
+function highlightMoves(r,c){
+renderBoard();
+document.querySelectorAll(".square").forEach((s,i)=>{
+let row=Math.floor(i/8);
+let col=i%8;
+if(isValidMove(r,c,row,col)){
+s.classList.add("possible");
+}
+});
+}
+
+function isValidMove(sr,sc,dr,dc){
+sr=+sr;sc=+sc;dr=+dr;dc=+dc;
+const piece=board[sr][sc];
+const target=board[dr][dc];
+if(sr===dr&&sc===dc) return false;
+if(target&&isCorrectTurn(target)) return false;
+
+const dx=dc-sc;
+const dy=dr-sr;
+
+switch(piece.toLowerCase()){
+case "p":
+const dir=piece===piece.toUpperCase()?-1:1;
+if(dx===0&&!target){
+if(dy===dir) return true;
+if((sr===6||sr===1)&&dy===2*dir&&!board[sr+dir][sc]) return true;
+}
+if(Math.abs(dx)===1&&dy===dir&&target) return true;
+return false;
+case "r": if(dx===0||dy===0) return clearPath(sr,sc,dr,dc); return false;
+case "n": return(Math.abs(dx)===2&&Math.abs(dy)===1)||(Math.abs(dx)===1&&Math.abs(dy)===2);
+case "b": if(Math.abs(dx)===Math.abs(dy)) return clearPath(sr,sc,dr,dc); return false;
+case "q": if(dx===0||dy===0||Math.abs(dx)===Math.abs(dy)) return clearPath(sr,sc,dr,dc); return false;
+case "k": return Math.abs(dx)<=1&&Math.abs(dy)<=1;
+}
+return false;
+}
+
+function clearPath(sr,sc,dr,dc){
+const stepR=Math.sign(dr-sr);
+const stepC=Math.sign(dc-sc);
+let r=sr+stepR,c=sc+stepC;
+while(r!==dr||c!==dc){
+if(board[r][c]) return false;
+r+=stepR;c+=stepC;
+}
+return true;
+}
+
+function startTimer(){
+    clearInterval(timerInterval);
+    timerInterval=setInterval(()=>{
+        if(!gameStarted || isPaused) return;
+
+        if(currentPlayer==="white") whiteTime--;
+        else blackTime--;
+
+        updateTimer();
+
+        if(whiteTime<=0){
+            showVictory("Pretas");
+        }
+        if(blackTime<=0){
+            showVictory("Brancas");
+        }
+
+    },1000);
+
+}
+function startMatch(){
+    const selectedTime = parseInt(document.getElementById("timeSelect").value);
+    whiteTime = selectedTime;
+    blackTime = selectedTime;
+    updateTimer();
+    gameStarted = true;
+    isPaused = false;
+}
+
+
+function updateTimer(){
+whiteTimerEl.textContent=formatTime(whiteTime);
+blackTimerEl.textContent=formatTime(blackTime);
+}
+function isKingInCheck(color){
+    let kingPos=null;
+
+    for(let r=0;r<8;r++){
+        for(let c=0;c<8;c++){
+            const piece=board[r][c];
+            if(piece && piece.toLowerCase()==="k"){
+                if((color==="white" && piece==="K") ||
+                   (color==="black" && piece==="k")){
+                    kingPos={r,c};
+                }
+            }
+        }
+    }
+
+    if(!kingPos) return false;
+
+    for(let r=0;r<8;r++){
+        for(let c=0;c<8;c++){
+            const piece=board[r][c];
+            if(piece && !isCorrectTurn(piece)){
+                if(isValidMove(r,c,kingPos.r,kingPos.c)){
+                    return true;
+                }
+            }
+        }
+    }
+
+    return false;
+}
+
+function formatTime(t){
+return String(Math.floor(t/60)).padStart(2,'0')+":"+String(t%60).padStart(2,'0');
+}
+
+initBoard();
+renderBoard();
+startTimer();
+
+
+
+</script>
+
+</body>
+</html>
